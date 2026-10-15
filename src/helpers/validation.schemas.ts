@@ -34,37 +34,37 @@ export const loginSchema = [
 // Profile validation schemas
 export const profileSchema = [
   body('targetRole')
-    .isIn(['frontend', 'backend', 'fullstack', 'devops', 'mobile'])
-    .withMessage('Invalid target role'),
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Target role must be between 1 and 200 characters'),
   body('experienceLevel')
-    .isIn(['junior', 'mid-level', 'senior'])
+    .optional()
+    .isIn(['entry', 'mid', 'senior', 'lead', 'junior', 'mid-level'])
     .withMessage('Invalid experience level'),
   body('industry')
     .optional()
-    .isIn(['fintech', 'saas', 'ecommerce', 'banking', 'healthcare', 'logistics', 'big-tech'])
-    .withMessage('Invalid industry'),
+    .isString()
+    .trim()
+    .isLength({ min: 1, max: 200 })
+    .withMessage('Industry must be between 1 and 200 characters'),
   body('interviewMode')
-    .isIn(['mock', 'practice'])
+    .optional()
+    .isIn(['mock', 'practice', 'technical', 'behavioral', 'system-design', 'full'])
     .withMessage('Invalid interview mode'),
   body('durationMinutes')
+    .optional()
     .isInt({ min: 15, max: 120 })
     .withMessage('Duration must be between 15 and 120 minutes'),
   body('technologies')
-    .isArray({ min: 1 })
-    .withMessage('At least one technology must be selected'),
-  body('technologies.*')
-    .isIn([
-      'javascript', 'typescript', 'react', 'nextjs', 'nodejs', 'nestjs', 'express',
-      'python', 'fastapi', 'java', 'spring-boot', 'postgresql', 'mysql', 'mongodb',
-      'redis', 'aws', 'docker', 'kubernetes'
-    ])
-    .withMessage('Invalid technology'),
+    .optional()
+    .isArray()
+    .withMessage('Technologies must be an array'),
   body('focusAreas')
-    .isArray({ min: 1 })
-    .withMessage('At least one focus area must be selected'),
-  body('focusAreas.*')
-    .isIn(['dsa', 'system-design', 'practical-implementation', 'databases', 'testing', 'security', 'performance'])
-    .withMessage('Invalid focus area'),
+    .optional()
+    .isArray()
+    .withMessage('Focus areas must be an array'),
 ];
 
 // Interview validation schemas
