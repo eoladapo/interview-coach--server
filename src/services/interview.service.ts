@@ -32,7 +32,7 @@ export class InterviewService {
         mode: data.mode || profile.interviewMode,
         targetRole: profile.targetRole,
         level: profile.experienceLevel,
-        technologies: profile.technologies.map((t: any) => t.technology),
+        technologies: JSON.stringify(profile.technologies.map((t: any) => t.technology)),
         industry: profile.industry,
         duration: data.duration || profile.durationMinutes,
       }

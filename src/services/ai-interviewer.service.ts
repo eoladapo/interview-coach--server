@@ -315,17 +315,34 @@ Respond in this JSON format:
   private parseQuestionResponse(response: string): QuestionResponse {
     try {
       const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No JSON found in response');
+      if (!jsonMatch) {
+        // Fallback to treating the entire response as the question
+        return {
+          question: response.trim(),
+          questionType: 'concept',
+          expectedConcepts: [],
+          timeEstimate: 5,
+          followUpStrategy: 'Continue based on response'
+        };
+      }
 
-      return JSON.parse(jsonMatch[0]);
-    } catch (error) {
-      // Fallback question
+      const parsed = JSON.parse(jsonMatch[0]);
       return {
-        question: 'Can you explain your approach to solving complex technical problems?',
+        question: parsed.question || response.trim(),
+        questionType: parsed.questionType || 'concept',
+        expectedConcepts: parsed.expectedConcepts || [],
+        timeEstimate: parsed.timeEstimate || 5,
+        followUpStrategy: parsed.followUpStrategy || 'Continue based on response'
+      };
+    } catch (error) {
+      console.error('Failed to parse question response JSON:', error);
+      // Fallback response
+      return {
+        question: response.trim() || 'Can you tell me more about your experience with this technology?',
         questionType: 'concept',
-        expectedConcepts: ['Problem Solving', 'Technical Thinking'],
+        expectedConcepts: [],
         timeEstimate: 5,
-        followUpStrategy: 'Ask for specific implementation details'
+        followUpStrategy: 'Continue based on response'
       };
     }
   }
@@ -352,31 +369,6 @@ Respond in this JSON format:
         shouldContinueTopic: true
       };
     }
-  }
-
-  /**
-   * Execute with retry logic
-   */
-  private async executeWithRetry<T>(fn: () => Promise<T>, maxRetries: number = 3): Promise<T> {
-    let lastError: Error;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        return await fn();
-      } catch (error: any) {
-        lastError = error;
-        console.warn(`Attempt ${attempt}/${maxRetries} failed:`, error.message);
-
-        if (attempt === maxRetries) {
-          break;
-        }
-
-        // Wait before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
-      }
-    }
-
-    throw lastError!;
   }
 
   /**
@@ -511,43 +503,5 @@ Remember: Be friendly, specific, and motivating. This is practice - help them fe
       ],
       detailedFeedback: `Thank you for completing this practice interview! Every interview you do builds your confidence and skills. You showed up, engaged with the questions, and got valuable practice under your belt. Keep practicing regularly, focus on explaining your thought process clearly, and don't be afraid to ask clarifying questions. You're on the right path - keep going!`
     };
-  }
-
-  /**
-   * Parse question response from AI
-   */
-  private parseQuestionResponse(response: string): QuestionResponse {
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        // Fallback to treating the entire response as the question
-        return {
-          question: response.trim(),
-          questionType: 'concept',
-          expectedConcepts: [],
-          timeEstimate: 5,
-          followUpStrategy: 'Continue based on response'
-        };
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        question: parsed.question || response.trim(),
-        questionType: parsed.questionType || 'concept',
-        expectedConcepts: parsed.expectedConcepts || [],
-        timeEstimate: parsed.timeEstimate || 5,
-        followUpStrategy: parsed.followUpStrategy || 'Continue based on response'
-      };
-    } catch (error) {
-      console.error('Failed to parse question response JSON:', error);
-      // Fallback response
-      return {
-        question: response.trim() || 'Can you tell me more about your experience with this technology?',
-        questionType: 'concept',
-        expectedConcepts: [],
-        timeEstimate: 5,
-        followUpStrategy: 'Continue based on response'
-      };
-    }
   }
 }

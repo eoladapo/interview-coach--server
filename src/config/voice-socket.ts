@@ -101,7 +101,9 @@ export function configureVoiceSocket(io: SocketIOServer) {
           sessionId,
           userProfile: {
             level: session.level,
-            technologies: session.technologies,
+            technologies: typeof session.technologies === 'string'
+              ? JSON.parse(session.technologies)
+              : session.technologies,
             targetRole: session.targetRole,
             industry: session.industry || undefined
           },
