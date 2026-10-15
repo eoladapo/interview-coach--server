@@ -11,12 +11,18 @@ export class ProfileController {
       const userId = req.user!.id;
       const profileData = req.body;
 
+      console.log('Creating/updating profile for user:', userId);
+      console.log('Profile data received:', JSON.stringify(profileData, null, 2));
+
       const profile = await this.profileService.createOrUpdateProfile(userId, profileData);
 
+      console.log('Profile created/updated successfully:', profile.id);
       return ResponseHelper.success(res, profile, 'Profile saved successfully');
     } catch (error) {
       console.error('Create/Update profile error:', error);
-      return ResponseHelper.error(res, 'Failed to save profile');
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
+      return ResponseHelper.error(res, 'Failed to save profile', 500);
     }
   };
 

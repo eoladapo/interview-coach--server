@@ -9,6 +9,10 @@ export const validate = (validations: ValidationChain[]) => {
     // Check for validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('Validation failed for', req.method, req.path);
+      console.error('Request body:', JSON.stringify(req.body, null, 2));
+      console.error('Validation errors:', JSON.stringify(errors.array(), null, 2));
+
       return res.status(400).json({
         success: false,
         error: 'Validation failed',
