@@ -31,11 +31,9 @@ export class InterviewSessionService {
           mode: interviewType,
           targetRole: profile.targetRole,
           level: profile.experienceLevel,
-          technologies: JSON.stringify(profile.technologies || []),
+          technologies: profile.technologies || [],
           industry: profile.industry,
-          duration: 30,
-          aiGenerated: true,
-          interviewPlan: JSON.stringify(interviewPlan)
+          duration: 30
         }
       });
 
@@ -269,7 +267,7 @@ export class InterviewSessionService {
       sessionId: session.id,
       userProfile: {
         level: session.level,
-        technologies: JSON.parse(session.technologies || '[]'),
+        technologies: Array.isArray(session.technologies) ? session.technologies : [],
         industry: session.industry,
         targetRole: session.targetRole
       },
@@ -367,9 +365,9 @@ export class InterviewSessionService {
           technicalScore: report.scores.technical,
           communicationScore: report.scores.communication,
           problemSolvingScore: report.scores.problemSolving,
-          strengths: JSON.stringify(report.strengths),
-          weaknesses: JSON.stringify(report.weaknesses),
-          recommendations: JSON.stringify(report.recommendations),
+          strengths: report.strengths,
+          weaknesses: report.weaknesses,
+          recommendations: report.recommendations,
           detailedFeedback: report.detailedFeedback,
           summary: report.summary
         }
@@ -407,11 +405,6 @@ export class InterviewSessionService {
       return null;
     }
 
-    return {
-      ...report,
-      strengths: JSON.parse(report.strengths as string),
-      weaknesses: JSON.parse(report.weaknesses as string),
-      recommendations: JSON.parse(report.recommendations as string)
-    };
+    return report;
   }
 }

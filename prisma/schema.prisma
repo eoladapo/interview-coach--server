@@ -167,25 +167,32 @@ model SkillAssessment {
   sessionId  String           @map("session_id")
   skillId    String           @map("skill_id")
   score      Float?
-  confidence Float?
+  confidence String?
   evidence   Json             @default("[]")
+  notes      String?
   assessedAt DateTime         @default(now()) @map("assessed_at")
   session    InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   skill      Skill            @relation(fields: [skillId], references: [id])
 
+  @@unique([sessionId, skillId])
   @@map("skill_assessments")
 }
 
 model InterviewReport {
-  id              String           @id @default(uuid())
-  sessionId       String           @unique @map("session_id")
-  overallScore    Float?           @map("overall_score")
-  strengths       String[]
-  weaknesses      String[]
-  recommendations String[]
-  nextSteps       String[]         @map("next_steps")
-  generatedAt     DateTime         @default(now()) @map("generated_at")
-  session         InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id                   String           @id @default(uuid())
+  sessionId            String           @unique @map("session_id")
+  overallScore         Float?           @map("overall_score")
+  technicalScore       Float?           @map("technical_score")
+  communicationScore   Float?           @map("communication_score")
+  problemSolvingScore  Float?           @map("problem_solving_score")
+  strengths            String[]
+  weaknesses           String[]
+  recommendations      String[]
+  nextSteps            String[]         @map("next_steps")
+  detailedFeedback     String?          @map("detailed_feedback")
+  summary              String?
+  generatedAt          DateTime         @default(now()) @map("generated_at")
+  session              InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("interview_reports")
 }
