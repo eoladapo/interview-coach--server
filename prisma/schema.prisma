@@ -1,0 +1,244 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Authentication and User Management
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  firstName   String?
+  lastName    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  profile           CandidateProfile?
+  interviewSessions InterviewSession[]
+  skillProgress     UserSkillProgress[]
+  
+  @@map("users")
+}
+
+// Candidate Profile and Preferences
+model CandidateProfile {
+  id               String   @id @default(uuid())
+  userId           String   @unique @map("user_id")
+  targetRole       String   @map("target_role")
+  experienceLevel  String   @map("experience_level") // junior, mid-level, senior
+  industry         String?  
+  interviewMode    String   @default("mock") @map("interview_mode") // mock, practice
+  durationMinutes  Int      @default(30) @map("duration_minutes")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  user           User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  technologies   CandidateTechnology[]
+  focusAreas     CandidateFocusArea[]
+  
+  @@map("candidate_profiles")
+}
+
+model CandidateTechnology {
+  profileId  String @map("profile_id")
+  technology String
+  
+  profile CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  @@id([profileId, technology])
+  @@map("candidate_technologies")
+}
+
+model CandidateFocusArea {
+  profileId String @map("profile_id")
+  focusArea String @map("focus_area")
+  
+  profile CandidateProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  @@id([profileId, focusArea])
+  @@map("candidate_focus_areas")
+}
+
+// Skills and Competencies
+model Skill {
+  id          String @id @default(uuid())
+  name        String @unique
+  description String?
+  category    String // technical, communication, problem-solving, etc.
+  
+  // Relations
+  questionSkills    QuestionSkill[]
+  skillAssessments  SkillAssessment[]
+  userProgress      UserSkillProgress[]
+  
+  @@map("skills")
+}
+
+model UserSkillProgress {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  skillId    String   @map("skill_id")
+  score      Float?   // 0.0 to 5.0
+  confidence Float?   // 0.0 to 1.0
+  attempts   Int      @default(0)
+  lastTested DateTime? @map("last_tested")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, skillId])
+  @@map("user_skill_progress")
+}
+
+// Questions and Question Bank
+model Question {
+  id              String   @id @default(uuid())
+  title           String
+  content         String
+  difficulty      String   // junior, mid-level, senior
+  type            String   // concept, implementation, coding, system-design
+  technology      String?  // node-js, react, postgresql, etc.
+  industry        String?  // fintech, saas, e-commerce, etc.
+  expectedAnswer  String?  @map("expected_answer")
+  followUpHints   String   @default("[]") @map("follow_up_hints")
+  timeLimit       Int?     @map("time_limit") // seconds
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  skills            QuestionSkill[]
+  interviewQuestions InterviewQuestion[]
+  
+  @@map("questions")
+}
+
+model QuestionSkill {
+  questionId String @map("question_id")
+  skillId    String @map("skill_id")
+  
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  skill    Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  
+  @@id([questionId, skillId])
+  @@map("question_skills")
+}
+
+// Interview Sessions
+model InterviewSession {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  status        String    @default("created") // created, in-progress, completed, cancelled
+  mode          String    // mock, practice, technical, system-design, behavioral
+  targetRole    String    @map("target_role")
+  level         String
+  technologies  String   @default("[]")
+  industry      String?
+  duration      Int       // minutes
+  aiGenerated   Boolean   @default(false) @map("ai_generated") // NEW: indicates AI-generated interview
+  interviewPlan String?   @map("interview_plan") // NEW: JSON string of AI interview plan
+  startedAt     DateTime? @map("started_at")
+  endedAt       DateTime? @map("ended_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  // Relations
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages          InterviewMessage[]
+  questions         InterviewQuestion[]
+  skillAssessments  SkillAssessment[]
+  report            InterviewReport?
+  
+  @@map("interview_sessions")
+}
+
+model InterviewMessage {
+  id        Int      @id @default(autoincrement())
+  sessionId String   @map("session_id")
+  speaker   String   // interviewer, candidate
+  content   String
+  type      String   @default("transcript") // transcript, system, code, hint
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("interview_messages")
+}
+
+model InterviewQuestion {
+  id         String   @id @default(uuid())
+  sessionId  String   @map("session_id")
+  questionId String   @map("question_id")
+  order      Int
+  askedAt    DateTime @default(now()) @map("asked_at")
+  
+  session  InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question Question         @relation(fields: [questionId], references: [id])
+  
+  @@unique([sessionId, order])
+  @@map("interview_questions")
+}
+
+// Evaluations and Assessments
+model SkillAssessment {
+  id         Int      @id @default(autoincrement())
+  sessionId  String   @map("session_id")
+  skillId    String   @map("skill_id")
+  score      Float?   // 0.0 to 5.0
+  confidence String?  @default("medium") // low, medium, high - NEW: AI confidence in assessment
+  notes      String?  // NEW: AI notes about the assessment
+  evidence   String   @default("[]") // JSON string for SQLite compatibility
+  assessedAt DateTime @default(now()) @map("assessed_at")
+  
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  skill   Skill            @relation(fields: [skillId], references: [id])
+  
+  @@unique([sessionId, skillId]) // NEW: ensure one assessment per skill per session
+  @@map("skill_assessments")
+}
+
+// Reports and Feedback
+model InterviewReport {
+  id                  String   @id @default(uuid())
+  sessionId           String   @unique @map("session_id")
+  overallScore        Float?   @map("overall_score")
+  technicalScore      Float?   @map("technical_score")
+  communicationScore  Float?   @map("communication_score")
+  problemSolvingScore Float?   @map("problem_solving_score")
+  strengths           String
+  weaknesses          String
+  recommendations     String
+  detailedFeedback    String?  @map("detailed_feedback")
+  summary             String?
+  nextSteps           String?  @map("next_steps")
+  generatedAt         DateTime @default(now()) @map("generated_at")
+  
+  session InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("interview_reports")
+}
+
+// Learning and Progress Tracking
+model LearningPlan {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  title         String
+  description   String?
+  priority      Int      @default(1) // 1 = high, 2 = medium, 3 = low
+  status        String   @default("active") // active, completed, paused
+  targetSkills  String @map("target_skills")
+  estimatedHours Float?   @map("estimated_hours")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  @@map("learning_plans")
+}
