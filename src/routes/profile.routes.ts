@@ -10,10 +10,11 @@ const profileController = new ProfileController();
 // All routes require authentication
 router.use(authenticate);
 
-// Profile routes
+// Profile routes - matching frontend expectations
+router.get('/', asyncHandler(profileController.getMyProfile));
 router.post('/', validate(profileSchema), asyncHandler(profileController.createOrUpdateProfile));
-router.get('/me', asyncHandler(profileController.getMyProfile));
-router.patch('/me', validate(profileSchema.map(v => v.optional())), asyncHandler(profileController.updateMyProfile));
-router.delete('/me', asyncHandler(profileController.deleteMyProfile));
+router.put('/', validate(profileSchema), asyncHandler(profileController.createOrUpdateProfile));
+router.patch('/', asyncHandler(profileController.updateMyProfile));
+router.delete('/', asyncHandler(profileController.deleteMyProfile));
 
 export default router;

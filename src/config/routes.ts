@@ -19,7 +19,7 @@ export function configureRoutes(app: Express) {
 
   // API routes
   app.use('/api/auth', authRoutes);
-  app.use('/api/profiles', profileRoutes);
+  app.use('/api/profile', profileRoutes);
   app.use('/api/interviews', interviewRoutes);
   app.use('/api/questions', questionRoutes);
   app.use('/api/reports', reportRoutes);

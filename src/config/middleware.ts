@@ -5,6 +5,11 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 
 export function configureMiddleware(app: Express) {
+  // Trust proxy for Render deployment
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+  }
+
   // Security middleware
   app.use(helmet());
 
