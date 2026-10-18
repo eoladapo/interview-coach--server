@@ -137,7 +137,7 @@ Respond in this JSON format:
     }
   ],
   "firstQuestion": "Opening question that starts the interview naturally",
-  "estimatedDuration": 30
+  "estimatedDuration": 5
 }`;
   }
 
@@ -304,7 +304,7 @@ Respond in this JSON format:
           { topic: 'Implementation Skills', timeAllocation: 15, depth: 'intermediate', keySkills: ['Coding'] }
         ],
         firstQuestion: 'Tell me about your experience with the technologies you work with most.',
-        estimatedDuration: 30
+        estimatedDuration: 5  // 5 minutes for testing
       };
     }
   }
@@ -414,7 +414,7 @@ INTERVIEW DETAILS:
 - Target Role: ${context.userProfile.targetRole}
 - Technologies: ${context.userProfile.technologies.join(', ')}
 - Interview Type: ${context.interviewType}
-- Duration: ${30 - context.timeRemaining} minutes
+- Duration: ${5 - context.timeRemaining} minutes  // 5 minutes for testing
 
 FULL CONVERSATION:
 ${conversationText}

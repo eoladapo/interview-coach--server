@@ -33,7 +33,7 @@ export class InterviewSessionService {
           level: profile.experienceLevel,
           technologies: profile.technologies || [],
           industry: profile.industry,
-          duration: 30
+          duration: 5  // 5 minutes for testing
         }
       });
 
@@ -48,7 +48,7 @@ export class InterviewSessionService {
         },
         conversationHistory: [],
         currentTopic: interviewPlan.topicAreas[0]?.topic || 'General',
-        timeRemaining: 30,
+        timeRemaining: 5,  // 5 minutes for testing
         skillAssessments: [],
         interviewType
       };
@@ -65,7 +65,7 @@ export class InterviewSessionService {
         interviewDetails: {
           plan: interviewPlan,
           status: 'ready',
-          duration: 30
+          duration: 5  // 5 minutes for testing
         }
       };
     } catch (error) {
@@ -261,7 +261,7 @@ export class InterviewSessionService {
     const elapsedMinutes = Math.floor(
       (Date.now() - new Date(session.createdAt).getTime()) / (1000 * 60)
     );
-    const timeRemaining = Math.max(0, 30 - elapsedMinutes);
+    const timeRemaining = Math.max(0, 5 - elapsedMinutes);  // 5 minutes for testing
 
     return {
       sessionId: session.id,
