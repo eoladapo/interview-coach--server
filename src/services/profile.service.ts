@@ -5,6 +5,10 @@ export class ProfileService {
   async createOrUpdateProfile(userId: string, profileData: CreateProfileData): Promise<ProfileResponse> {
     const { technologies, focusAreas, ...profileFields } = profileData;
 
+    // Filter out null/undefined values from arrays
+    const validTechnologies = (technologies || []).filter((tech): tech is string => tech != null && tech.trim() !== '');
+    const validFocusAreas = (focusAreas || []).filter((area): area is string => area != null && area.trim() !== '');
+
     // Check if profile already exists
     const existingProfile = await prisma.candidateProfile.findUnique({
       where: { userId }
@@ -18,12 +22,16 @@ export class ProfileService {
         where: { userId },
         data: {
           ...profileFields,
-          technologies: {
-            create: technologies.map((tech: string) => ({ technology: tech }))
-          },
-          focusAreas: {
-            create: focusAreas.map((area: string) => ({ focusArea: area }))
-          }
+          ...(validTechnologies.length > 0 && {
+            technologies: {
+              create: validTechnologies.map((tech: string) => ({ technology: tech }))
+            }
+          }),
+          ...(validFocusAreas.length > 0 && {
+            focusAreas: {
+              create: validFocusAreas.map((area: string) => ({ focusArea: area }))
+            }
+          })
         },
         include: {
           technologies: true,
@@ -39,12 +47,16 @@ export class ProfileService {
       data: {
         userId,
         ...profileFields,
-        technologies: {
-          create: technologies.map((tech: string) => ({ technology: tech }))
-        },
-        focusAreas: {
-          create: focusAreas.map((area: string) => ({ focusArea: area }))
-        }
+        ...(validTechnologies.length > 0 && {
+          technologies: {
+            create: validTechnologies.map((tech: string) => ({ technology: tech }))
+          }
+        }),
+        ...(validFocusAreas.length > 0 && {
+          focusAreas: {
+            create: validFocusAreas.map((area: string) => ({ focusArea: area }))
+          }
+        })
       },
       include: {
         technologies: true,
