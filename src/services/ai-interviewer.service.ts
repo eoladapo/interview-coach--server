@@ -186,32 +186,19 @@ Respond ONLY with valid JSON:
 
 
     try {
-      console.log('⏳ Calling AI service...');
-
       const response = await this.executeWithRetry(() =>
         aiService.generateText(prompt)
       );
 
-      console.log(`✅ AI response received in ${elapsed}ms`);
-
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        console.error('❌ No JSON found in AI response');
         throw new Error('No JSON found in response');
       }
 
-      console.log('JSON extracted, parsing...');
       const parsed = JSON.parse(jsonMatch[0]);
-
-      console.log('✅ Successfully parsed feedback:');
-      console.log('  - Ideal approach length:', parsed.idealApproach?.length || 0, 'characters');
-      console.log('  - Ideal approach preview:', parsed.idealApproach?.substring(0, 100));
-      console.log('  - Improvements count:', parsed.improvements?.length || 0);
-
       return parsed;
     } catch (error) {
-      console.error('❌ FAILED TO GENERATE QUESTION FEEDBACK');
-      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Failed to generate question feedback:', error instanceof Error ? error.message : String(error));
 
       // Return question-specific fallback
       return {
