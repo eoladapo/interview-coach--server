@@ -154,78 +154,72 @@ Example: "Thank you for taking the time to practice with me today! I really appr
     candidateAnswer: string,
     context: InterviewContext
   ): Promise<{ idealApproach: string; improvements: string[] }> {
-    const prompt = `
-You are demonstrating how to answer THIS SPECIFIC interview question.
+    console.log('📝 GENERATING QUESTION FEEDBACK');
 
-QUESTION ASKED: "${question}"
+    const prompt = `Answer this interview question as if YOU are being interviewed.
+
+QUESTION: "${question}"
+
 CANDIDATE'S ANSWER: "${candidateAnswer}"
 
-CANDIDATE PROFILE:
-- Level: ${context.userProfile.level}
-- Technologies: ${context.userProfile.technologies.join(', ')}
-- Target Role: ${context.userProfile.targetRole}
-
 YOUR TASK:
+1. IDEAL ANSWER: Answer THIS EXACT QUESTION yourself (2-3 sentences, specific and technical)
+   - Read the question carefully and answer THAT question
+   - If asked "explain what happens", explain it
+   - If asked "tell me about a time", tell about a time
+   - Use technical details and real examples
 
-1. IDEAL ANSWER: Answer THE EXACT SAME QUESTION that was asked.
-   - Read the question carefully
-   - Answer THAT SPECIFIC QUESTION, not a different one
-   - If the question asks "explain what happens when...", then explain what happens
-   - If the question asks "tell me about a time...", then tell about a time
-   - Use technical details relevant to THIS question
-   - 2-3 paragraphs maximum
-   - Make it natural and conversational
+2. IMPROVEMENTS: 3 specific ways the candidate could improve (brief bullets)
 
-IMPORTANT: Your answer must be directly answering the question "${question}". Do NOT answer a different question about performance or optimization unless that's what was asked.
+CRITICAL: Answer the SAME question that was asked. Don't answer a different question!
 
-EXAMPLES:
+Example:
+Q: "How do you choose a database?"
+Good Answer: "I consider data structure first. For structured data with relationships, I use PostgreSQL for ACID compliance. For unstructured data or rapid iteration, MongoDB works well. I also factor in team expertise and scaling needs."
+Bad: "In my previous role, we had performance issues..." (different question!)
 
-Question: "Explain what happens when a user types a URL in the browser"
-Good: "When a user types a URL like google.com, the browser first checks its cache for the IP address. If not found, it performs a DNS lookup to resolve the domain name to an IP address. Once resolved, the browser establishes a TCP connection with the server through a three-way handshake, then sends an HTTP/HTTPS request. The server processes the request and sends back an HTML response, which the browser parses and renders, loading additional resources like CSS, JavaScript, and images along the way."
-
-Bad: "In my previous role, I faced a situation where our application was experiencing performance issues..." (This answers a completely different question!)
-
-Question: "Tell me about a time you debugged a difficult issue"
-Good: "Last year, our production app started crashing intermittently with no clear pattern. I spent hours analyzing logs and discovered it only happened when specific users performed certain actions. I used Chrome DevTools to profile the app and found a memory leak in our WebSocket connection handler..."
-
-Bad: "When a user makes a request, the browser first checks DNS..." (This answers a completely different question!)
-
-2. IMPROVEMENTS: List 3 specific ways the candidate could improve THEIR answer to THIS question
-   - Compare their answer to your example
-   - Be specific about what's missing
-   - Frame positively
-
-Respond in this JSON format:
+Respond ONLY with valid JSON:
 {
-  "idealApproach": "Your actual answer to the SPECIFIC question asked",
-  "improvements": [
-    "Specific improvement 1",
-    "Specific improvement 2", 
-    "Specific improvement 3"
-  ]
-}
-`;
+  "idealApproach": "Your 2-3 sentence answer to the question",
+  "improvements": ["improvement 1", "improvement 2", "improvement 3"]
+}`;
+
 
     try {
+      console.log('⏳ Calling AI service...');
+
       const response = await this.executeWithRetry(() =>
         aiService.generateText(prompt)
       );
 
+      console.log(`✅ AI response received in ${elapsed}ms`);
+
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
+        console.error('❌ No JSON found in AI response');
         throw new Error('No JSON found in response');
       }
 
-      return JSON.parse(jsonMatch[0]);
+      console.log('JSON extracted, parsing...');
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      console.log('✅ Successfully parsed feedback:');
+      console.log('  - Ideal approach length:', parsed.idealApproach?.length || 0, 'characters');
+      console.log('  - Ideal approach preview:', parsed.idealApproach?.substring(0, 100));
+      console.log('  - Improvements count:', parsed.improvements?.length || 0);
+
+      return parsed;
     } catch (error) {
-      console.error('Failed to generate question feedback:', error);
-      // Return generic feedback
+      console.error('❌ FAILED TO GENERATE QUESTION FEEDBACK');
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+
+      // Return question-specific fallback
       return {
-        idealApproach: `To answer this question effectively, I would provide specific technical details and real examples related to: ${question}`,
+        idealApproach: `To answer "${question.substring(0, 150)}": A strong response should include specific technical details, concrete examples from real-world experience, and clear reasoning behind your approach.`,
         improvements: [
-          "Provide more specific technical details relevant to the question",
-          "Include concrete examples to support your explanation",
-          "Structure your response with clear beginning, middle, and end"
+          "Provide more specific technical details directly related to the question asked",
+          "Include concrete examples or scenarios that demonstrate your understanding",
+          "Explain your reasoning and thought process more explicitly"
         ]
       };
     }

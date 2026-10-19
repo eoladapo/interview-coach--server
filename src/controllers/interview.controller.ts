@@ -117,7 +117,12 @@ export class InterviewController {
         return ResponseHelper.notFound(res, 'Report not yet available. Please wait a moment and try again.');
       }
 
-      return ResponseHelper.success(res, report, 'Report retrieved successfully');
+      // Convert BigInt fields to strings for JSON serialization
+      const serializedReport = JSON.parse(JSON.stringify(report, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ));
+
+      return ResponseHelper.success(res, serializedReport, 'Report retrieved successfully');
     } catch (error) {
       console.error('Get AI interview report error:', error);
       return ResponseHelper.error(res, 'Failed to retrieve report');

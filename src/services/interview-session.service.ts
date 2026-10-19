@@ -79,31 +79,14 @@ export class InterviewSessionService {
    */
   async processResponse(sessionId: string, candidateResponse: string) {
     try {
-      console.log('=== INTERVIEW SESSION: PROCESSING RESPONSE ===');
-      console.log('Session ID:', sessionId);
-      console.log('Candidate response:', candidateResponse);
-
       // Get session and validate
       const session = await this.getSession(sessionId);
       if (!session || session.status === 'completed') {
         throw new Error('Invalid or completed interview session');
       }
 
-      console.log('Session found:', {
-        id: session.id,
-        status: session.status,
-        userId: session.userId,
-        messageCount: session.messages?.length || 0
-      });
-
       // Build current context
       const context = await this.buildInterviewContext(session);
-      console.log('Interview context built:', {
-        sessionId: context.sessionId,
-        currentTopic: context.currentTopic,
-        timeRemaining: context.timeRemaining,
-        conversationLength: context.conversationHistory.length
-      });
 
       // Add candidate response to conversation
       await this.addMessage(sessionId, 'candidate', candidateResponse, 'answer');
@@ -115,12 +98,10 @@ export class InterviewSessionService {
 
       // Update time remaining (estimate: 1.5 minutes per exchange)
       const newTimeRemaining = Math.max(0, context.timeRemaining - 1.5);
-      console.log('Time remaining after this response:', newTimeRemaining);
 
       // Determine if this is the final question (when time is running low)
       const isFinalQuestion = newTimeRemaining <= 1;
 
-      console.log('Sending to AI for evaluation...', { isFinalQuestion });
       // Get AI evaluation and next question
       const { evaluation, nextQuestion, shouldEnd } = await this.aiInterviewer.evaluateAndGenerateNext(
         candidateResponse,
@@ -128,17 +109,8 @@ export class InterviewSessionService {
         isFinalQuestion
       );
 
-      console.log('AI Evaluation received:', {
-        score: evaluation.score,
-        strengths: evaluation.strengths,
-        weaknesses: evaluation.weaknesses,
-        hasNextQuestion: !!nextQuestion,
-        shouldEnd
-      });
-
       // Update skill assessments (skip if evaluation failed)
       if (evaluation.skillsAssessed && evaluation.skillsAssessed.length > 0) {
-        console.log('Updating skill assessments:', evaluation.skillsAssessed.length);
         await this.updateSkillAssessments(sessionId, evaluation.skillsAssessed);
       }
 
@@ -152,7 +124,6 @@ export class InterviewSessionService {
       };
 
       if (!shouldEnd && nextQuestion && newTimeRemaining > 1) {
-        console.log('Continuing interview with next question:', nextQuestion.question);
         // Add next question to conversation and database
         await this.addMessage(sessionId, 'interviewer', nextQuestion.question, 'question');
 
@@ -161,7 +132,6 @@ export class InterviewSessionService {
         response.hasNextQuestion = true;
         response.status = 'continuing';
       } else {
-        console.log('Interview ending - generating closing remarks');
         // Generate graceful closing remarks
         const closingRemarks = await this.aiInterviewer.generateClosingRemarks(context);
         await this.addMessage(sessionId, 'interviewer', closingRemarks, 'closing');
@@ -175,7 +145,6 @@ export class InterviewSessionService {
         response.message = 'Interview completed. Generating final report...';
       }
 
-      console.log('Final response:', response);
       return response;
     } catch (error) {
       console.error('Failed to process response:', error);
@@ -360,10 +329,11 @@ export class InterviewSessionService {
    */
   private async generateFinalReport(sessionId: string) {
     try {
-      console.log(`Generating final report for session ${sessionId}...`);
-
       const session = await this.getSession(sessionId);
-      if (!session) return;
+      if (!session) {
+        console.error('Session not found for report generation');
+        return;
+      }
 
       // Build conversation context
       const context = await this.buildInterviewContext(session);
@@ -374,27 +344,48 @@ export class InterviewSessionService {
       // Generate detailed feedback for each Q&A pair
       const questionFeedbacks = [];
       let currentQuestion = null;
+      let qaPairCount = 0;
 
       for (const msg of session.messages) {
         if (msg.speaker === 'interviewer' && msg.type === 'question') {
           currentQuestion = msg;
         } else if (msg.speaker === 'candidate' && msg.type === 'answer' && currentQuestion) {
+          qaPairCount++;
           try {
+            // Add small delay between API calls to avoid rate limiting
+            if (qaPairCount > 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+
             const feedback = await this.aiInterviewer.generateQuestionFeedback(
               currentQuestion.content,
               msg.content,
               context
             );
+
             questionFeedbacks.push({
-              questionId: currentQuestion.id,
-              answerId: msg.id,
+              questionId: String(currentQuestion.id), // Convert BigInt to string
+              answerId: String(msg.id), // Convert BigInt to string
               question: currentQuestion.content,
               answer: msg.content,
               idealApproach: feedback.idealApproach,
               improvements: feedback.improvements
             });
           } catch (error) {
-            console.error('Failed to generate feedback for Q&A pair:', error);
+            console.error('Failed to generate feedback for Q&A pair:', error instanceof Error ? error.message : String(error));
+            // Add fallback feedback so user still gets something
+            questionFeedbacks.push({
+              questionId: String(currentQuestion.id), // Convert BigInt to string
+              answerId: String(msg.id), // Convert BigInt to string
+              question: currentQuestion.content,
+              answer: msg.content,
+              idealApproach: `To effectively answer "${currentQuestion.content.substring(0, 100)}${currentQuestion.content.length > 100 ? '...' : ''}": Provide specific technical details with concrete examples from your experience.`,
+              improvements: [
+                "Include more specific technical details directly related to the question",
+                "Use concrete examples to demonstrate your understanding",
+                "Structure your response with a clear logical flow"
+              ]
+            });
           }
           currentQuestion = null;
         }
