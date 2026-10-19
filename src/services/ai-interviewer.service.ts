@@ -52,20 +52,28 @@ export class AIInterviewerService {
    */
   async evaluateAndGenerateNext(
     candidateResponse: string,
-    context: InterviewContext
-  ): Promise<{ evaluation: EvaluationResult; nextQuestion?: QuestionResponse }> {
+    context: InterviewContext,
+    isFinalQuestion: boolean = false
+  ): Promise<{ evaluation: EvaluationResult; nextQuestion?: QuestionResponse; shouldEnd?: boolean }> {
     try {
       // Step 1: Evaluate the response
       const evaluation = await this.evaluateResponse(candidateResponse, context);
 
       // Step 2: Decide if we need a follow-up or new topic
       let nextQuestion: QuestionResponse | undefined;
+      let shouldEnd = false;
 
-      if (context.timeRemaining > 3 && this.shouldContinueInterview(evaluation, context)) {
+      // If this was the final question, don't generate another one
+      if (isFinalQuestion) {
+        shouldEnd = true;
+      } else if (context.timeRemaining > 1) {
+        // Continue with follow-up questions as long as we have time
         nextQuestion = await this.generateFollowUpQuestion(evaluation, context);
+      } else {
+        shouldEnd = true;
       }
 
-      return { evaluation, nextQuestion };
+      return { evaluation, nextQuestion, shouldEnd };
     } catch (error) {
       console.error('Failed to evaluate and generate next question:', error);
       throw new Error('Unable to process response. Please try again.');
@@ -102,6 +110,125 @@ export class AIInterviewerService {
     );
 
     return this.parseQuestionResponse(response);
+  }
+
+  /**
+   * Generate graceful closing remarks for the interview
+   */
+  async generateClosingRemarks(context: InterviewContext): Promise<string> {
+    const prompt = `
+You are wrapping up a warm, supportive practice interview. The time has come to a natural close.
+
+CANDIDATE: ${context.userProfile.level} targeting ${context.userProfile.targetRole}
+TIME SPENT: About ${5 - context.timeRemaining} minutes of practice
+
+Generate a brief, encouraging closing that:
+1. Thank them for their time and effort
+2. Acknowledges something specific they did well
+3. Motivates them to keep practicing
+4. Let them know feedback is coming
+
+TONE: Warm, genuine, encouraging - like a supportive mentor
+
+Respond with ONLY the closing remarks text (no JSON), keep it to 2-3 sentences max.
+
+Example: "Thank you for taking the time to practice with me today! I really appreciated how you explained your thought process on that last question. Your feedback report will be ready shortly - keep practicing, you're doing great!"
+`;
+
+    try {
+      const response = await this.executeWithRetry(() =>
+        aiService.generateText(prompt)
+      );
+      return response.trim();
+    } catch (error) {
+      console.error('Failed to generate closing remarks:', error);
+      return "Thank you for completing this practice interview! You showed great effort and engagement. Your detailed feedback report will be ready shortly. Keep practicing - you're building valuable skills!";
+    }
+  }
+
+  /**
+   * Generate detailed feedback for a specific question-answer pair
+   */
+  async generateQuestionFeedback(
+    question: string,
+    candidateAnswer: string,
+    context: InterviewContext
+  ): Promise<{ idealApproach: string; improvements: string[] }> {
+    const prompt = `
+You are demonstrating how to answer THIS SPECIFIC interview question.
+
+QUESTION ASKED: "${question}"
+CANDIDATE'S ANSWER: "${candidateAnswer}"
+
+CANDIDATE PROFILE:
+- Level: ${context.userProfile.level}
+- Technologies: ${context.userProfile.technologies.join(', ')}
+- Target Role: ${context.userProfile.targetRole}
+
+YOUR TASK:
+
+1. IDEAL ANSWER: Answer THE EXACT SAME QUESTION that was asked.
+   - Read the question carefully
+   - Answer THAT SPECIFIC QUESTION, not a different one
+   - If the question asks "explain what happens when...", then explain what happens
+   - If the question asks "tell me about a time...", then tell about a time
+   - Use technical details relevant to THIS question
+   - 2-3 paragraphs maximum
+   - Make it natural and conversational
+
+IMPORTANT: Your answer must be directly answering the question "${question}". Do NOT answer a different question about performance or optimization unless that's what was asked.
+
+EXAMPLES:
+
+Question: "Explain what happens when a user types a URL in the browser"
+Good: "When a user types a URL like google.com, the browser first checks its cache for the IP address. If not found, it performs a DNS lookup to resolve the domain name to an IP address. Once resolved, the browser establishes a TCP connection with the server through a three-way handshake, then sends an HTTP/HTTPS request. The server processes the request and sends back an HTML response, which the browser parses and renders, loading additional resources like CSS, JavaScript, and images along the way."
+
+Bad: "In my previous role, I faced a situation where our application was experiencing performance issues..." (This answers a completely different question!)
+
+Question: "Tell me about a time you debugged a difficult issue"
+Good: "Last year, our production app started crashing intermittently with no clear pattern. I spent hours analyzing logs and discovered it only happened when specific users performed certain actions. I used Chrome DevTools to profile the app and found a memory leak in our WebSocket connection handler..."
+
+Bad: "When a user makes a request, the browser first checks DNS..." (This answers a completely different question!)
+
+2. IMPROVEMENTS: List 3 specific ways the candidate could improve THEIR answer to THIS question
+   - Compare their answer to your example
+   - Be specific about what's missing
+   - Frame positively
+
+Respond in this JSON format:
+{
+  "idealApproach": "Your actual answer to the SPECIFIC question asked",
+  "improvements": [
+    "Specific improvement 1",
+    "Specific improvement 2", 
+    "Specific improvement 3"
+  ]
+}
+`;
+
+    try {
+      const response = await this.executeWithRetry(() =>
+        aiService.generateText(prompt)
+      );
+
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+
+      return JSON.parse(jsonMatch[0]);
+    } catch (error) {
+      console.error('Failed to generate question feedback:', error);
+      // Return generic feedback
+      return {
+        idealApproach: `To answer this question effectively, I would provide specific technical details and real examples related to: ${question}`,
+        improvements: [
+          "Provide more specific technical details relevant to the question",
+          "Include concrete examples to support your explanation",
+          "Structure your response with clear beginning, middle, and end"
+        ]
+      };
+    }
   }
 
   /**

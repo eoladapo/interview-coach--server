@@ -20,6 +20,7 @@ router.post('/ai/:sessionId/end', asyncHandler(interviewController.endAIIntervie
 router.get('/ai/:sessionId/report', asyncHandler(interviewController.getAIInterviewReport));
 
 // Standard interview routes
+router.get('/progress', asyncHandler(interviewController.getProgress));
 router.get('/', validate(paginationSchema), asyncHandler(interviewController.getMyInterviews));
 router.get('/:id', validate(idParamSchema), asyncHandler(interviewController.getInterview));
 router.post('/:id/start', validate(idParamSchema), asyncHandler(interviewController.startInterview));

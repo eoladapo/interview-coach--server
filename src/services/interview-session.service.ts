@@ -113,18 +113,27 @@ export class InterviewSessionService {
         timestamp: new Date()
       });
 
-      console.log('Sending to AI for evaluation...');
+      // Update time remaining (estimate: 1.5 minutes per exchange)
+      const newTimeRemaining = Math.max(0, context.timeRemaining - 1.5);
+      console.log('Time remaining after this response:', newTimeRemaining);
+
+      // Determine if this is the final question (when time is running low)
+      const isFinalQuestion = newTimeRemaining <= 1;
+
+      console.log('Sending to AI for evaluation...', { isFinalQuestion });
       // Get AI evaluation and next question
-      const { evaluation, nextQuestion } = await this.aiInterviewer.evaluateAndGenerateNext(
+      const { evaluation, nextQuestion, shouldEnd } = await this.aiInterviewer.evaluateAndGenerateNext(
         candidateResponse,
-        context
+        context,
+        isFinalQuestion
       );
 
       console.log('AI Evaluation received:', {
         score: evaluation.score,
         strengths: evaluation.strengths,
         weaknesses: evaluation.weaknesses,
-        hasNextQuestion: !!nextQuestion
+        hasNextQuestion: !!nextQuestion,
+        shouldEnd
       });
 
       // Update skill assessments (skip if evaluation failed)
@@ -132,9 +141,6 @@ export class InterviewSessionService {
         console.log('Updating skill assessments:', evaluation.skillsAssessed.length);
         await this.updateSkillAssessments(sessionId, evaluation.skillsAssessed);
       }
-
-      // Update time remaining (rough estimate: 2 minutes per exchange)
-      const newTimeRemaining = Math.max(0, context.timeRemaining - 2);
 
       let response: any = {
         evaluation: {
@@ -145,18 +151,26 @@ export class InterviewSessionService {
         }
       };
 
-      if (nextQuestion && newTimeRemaining > 3) {
+      if (!shouldEnd && nextQuestion && newTimeRemaining > 1) {
         console.log('Continuing interview with next question:', nextQuestion.question);
         // Add next question to conversation and database
         await this.addMessage(sessionId, 'interviewer', nextQuestion.question, 'question');
 
         response.nextQuestion = nextQuestion.question;
         response.timeRemaining = newTimeRemaining;
+        response.hasNextQuestion = true;
         response.status = 'continuing';
       } else {
-        console.log('Ending interview - time remaining:', newTimeRemaining);
+        console.log('Interview ending - generating closing remarks');
+        // Generate graceful closing remarks
+        const closingRemarks = await this.aiInterviewer.generateClosingRemarks(context);
+        await this.addMessage(sessionId, 'interviewer', closingRemarks, 'closing');
+
         // End interview
         await this.endInterview(sessionId);
+
+        response.closingRemarks = closingRemarks;
+        response.hasNextQuestion = false;
         response.status = 'completed';
         response.message = 'Interview completed. Generating final report...';
       }
@@ -357,6 +371,35 @@ export class InterviewSessionService {
       // Generate comprehensive report using AI
       const report = await this.aiInterviewer.generateComprehensiveReport(context);
 
+      // Generate detailed feedback for each Q&A pair
+      const questionFeedbacks = [];
+      let currentQuestion = null;
+
+      for (const msg of session.messages) {
+        if (msg.speaker === 'interviewer' && msg.type === 'question') {
+          currentQuestion = msg;
+        } else if (msg.speaker === 'candidate' && msg.type === 'answer' && currentQuestion) {
+          try {
+            const feedback = await this.aiInterviewer.generateQuestionFeedback(
+              currentQuestion.content,
+              msg.content,
+              context
+            );
+            questionFeedbacks.push({
+              questionId: currentQuestion.id,
+              answerId: msg.id,
+              question: currentQuestion.content,
+              answer: msg.content,
+              idealApproach: feedback.idealApproach,
+              improvements: feedback.improvements
+            });
+          } catch (error) {
+            console.error('Failed to generate feedback for Q&A pair:', error);
+          }
+          currentQuestion = null;
+        }
+      }
+
       // Save report to database
       await prisma.interviewReport.create({
         data: {
@@ -369,7 +412,8 @@ export class InterviewSessionService {
           weaknesses: report.weaknesses,
           recommendations: report.recommendations,
           detailedFeedback: report.detailedFeedback,
-          summary: report.summary
+          summary: report.summary,
+          questionFeedbacks: JSON.stringify(questionFeedbacks) // Store as JSON for now
         }
       });
 

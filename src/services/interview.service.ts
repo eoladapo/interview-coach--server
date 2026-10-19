@@ -60,13 +60,23 @@ export class InterviewService {
         where: { userId },
         skip: offset,
         take: limit,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
+        include: {
+          report: {
+            select: {
+              overallScore: true
+            }
+          }
+        }
       }),
       prisma.interviewSession.count({ where: { userId } })
     ]);
 
     return {
-      interviews: interviews.map(this.formatInterviewResponse),
+      interviews: interviews.map(interview => ({
+        ...this.formatInterviewResponse(interview),
+        score: (interview as any).report?.overallScore || null
+      })),
       total
     };
   }

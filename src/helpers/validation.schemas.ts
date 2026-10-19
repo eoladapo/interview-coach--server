@@ -55,8 +55,8 @@ export const profileSchema = [
     .withMessage('Invalid interview mode'),
   body('durationMinutes')
     .optional()
-    .isInt({ min: 15, max: 120 })
-    .withMessage('Duration must be between 15 and 120 minutes'),
+    .isInt({ min: 5, max: 120 })
+    .withMessage('Duration must be between 5 and 120 minutes'),
   body('technologies')
     .optional()
     .isArray()
@@ -71,8 +71,8 @@ export const profileSchema = [
 export const createInterviewSchema = [
   body('duration')
     .optional()
-    .isInt({ min: 15, max: 120 })
-    .withMessage('Duration must be between 15 and 120 minutes'),
+    .isInt({ min: 5, max: 120 })
+    .withMessage('Duration must be between 5 and 120 minutes'),
   body('mode')
     .optional()
     .isIn(['mock', 'practice'])

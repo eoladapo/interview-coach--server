@@ -313,4 +313,86 @@ export class InterviewController {
       return ResponseHelper.error(res, 'Failed to get next question');
     }
   };
+
+  // Get user progress statistics
+  getProgress = async (req: AuthenticatedRequest, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.id;
+
+      // Get all completed interviews
+      const completedInterviews = await this.interviewService.getUserInterviews(userId, 1, 1000);
+      const completed = completedInterviews.interviews.filter(i => i.status === 'completed');
+
+      // Get reports for completed interviews to calculate scores
+      const reportsData = await Promise.all(
+        completed.map(async (interview) => {
+          try {
+            const report = await this.aiInterviewService.getInterviewReport(interview.id);
+            return report;
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const reports = reportsData.filter(r => r !== null);
+
+      // Calculate statistics
+      const totalInterviews = completed.length;
+      const averageScore = reports.length > 0
+        ? Math.round(reports.reduce((sum, r: any) => sum + (r?.overallScore || 0), 0) / reports.length)
+        : 0;
+
+      // Get interviews from this week
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      const thisWeek = completed.filter(i => new Date(i.createdAt) >= oneWeekAgo).length;
+
+      // Calculate streak (simplified - consecutive days with interviews)
+      const interviewDates = completed
+        .map(i => new Date(i.createdAt).toDateString())
+        .filter((date, index, self) => self.indexOf(date) === index)
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+      let streakDays = 0;
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+
+      if (interviewDates.length > 0) {
+        if (interviewDates[0] === today || interviewDates[0] === yesterday) {
+          streakDays = 1;
+          for (let i = 1; i < interviewDates.length; i++) {
+            const current = new Date(interviewDates[i]);
+            const previous = new Date(interviewDates[i - 1]);
+            const diffDays = Math.floor((previous.getTime() - current.getTime()) / 86400000);
+            if (diffDays === 1) {
+              streakDays++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      // Best streak calculation (simplified - same as current for now)
+      const bestStreak = streakDays;
+
+      const progressData = {
+        totalInterviews,
+        averageScore,
+        thisWeek,
+        streakDays,
+        bestStreak,
+        skillsProgress: [] // TODO: Implement skills progress tracking
+      };
+
+      return ResponseHelper.success(res, progressData, 'Progress retrieved successfully');
+    } catch (error) {
+      console.error('Get progress error:', error);
+      return ResponseHelper.error(res, 'Failed to get progress');
+    }
+  };
 }
+
+
+export default new InterviewController();

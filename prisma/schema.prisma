@@ -191,6 +191,7 @@ model InterviewReport {
   nextSteps            String[]         @map("next_steps")
   detailedFeedback     String?          @map("detailed_feedback")
   summary              String?
+  questionFeedbacks    String?          @map("question_feedbacks") // JSON string of detailed Q&A feedback
   generatedAt          DateTime         @default(now()) @map("generated_at")
   session              InterviewSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
